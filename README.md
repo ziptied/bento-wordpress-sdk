@@ -1,95 +1,186 @@
-# Bento SDK for WordPress & WooCommerce!
+
 [![Build Status](https://travis-ci.org/bentonow/bento-wordpress-sdk.svg?branch=master)](https://travis-ci.org/bentonow/bento-wordpress-sdk)
 
-🍱 Simple, powerful eCommerce analytics for WordPress & WooCommerce projects!
+> [!TIP]
+> Need help? Join our [Discord](https://discord.gg/ssXXFRmt5F) or email jesse@bentonow.com for personalized support.
 
-Track events, update data, record LTV and more. Data is stored in your Bento account so you can easily research and investigate what's going on.
+The Bento WordPress & WooCommerce SDK makes it quick and easy to build an excellent eCommerce analytics experience in your WordPress site. We provide powerful and customizable event tracking that can be used out-of-the-box to monitor your users' behavior, manage subscribers, and track orders. We also expose low-level APIs so that you can build fully custom experiences.
 
-👋 To get personalized support, please tweet @bento or email jesse@bentonow.com!
+Get started with our [📚 integration guides](https://docs.bentonow.com), or [📘 browse the SDK reference](https://docs.bentonow.com/subscribers).
 
 🐶 Battle-tested on Bento Production!
 
-## Installation
 
-Download and install this package as a plugin, then add your site key. You're done!
+Table of contents
+=================
 
-## About Caching (Please Read)
+<!--ts-->
+* [Features](#features)
+* [Requirements](#requirements)
+* [Caching](#caching)
+* [Getting started](#getting-started)
+    * [Installation](#installation)
+* [Modules](#modules)
+* [Things to Know](#things-to-know)
+* [Contributing](#contributing)
+* [License](#license)
+<!--te-->
+
+## Features
+
+* **WooCommerce integration**: Track orders, refunds, cancellations, and shipments automatically.
+* **WooCommerce Subscriptions support**: Monitor subscription lifecycles including creation, activation, cancellation, and renewals.
+* **Easy Digital Downloads integration**: Track purchases, downloads, and refunds for digital products.
+* **Lifetime Value (LTV) tracking**: Automatically calculate and update customer LTV based on orders and refunds.
+* **Event tracking**: Capture key eCommerce events to power your marketing automation.
+* **WordPress compatibility**: Seamless integration with WordPress sites.
+
+## Requirements
+
+The Bento WordPress & WooCommerce SDK requires:
+- WordPress 5.0+
+- WooCommerce 3.0+ (for WooCommerce features)
+- Easy Digital Downloads 2.0+ (for EDD features)
+- Bento Account for a valid **SITE_UUID**.
+
+## Caching
 
 For now, Bento's script is personalized and dynamic meaning that it changes on every page load. This is necessary to power our on-page personalization engine and a lot of the magic that's under the hood. Please make sure you exclude your custom Bento.js script if you are using a caching plugin such as WP Rocket or SuperCache.
 
-## Events
+## Getting started
+
+### Installation
+
+1. Download the Bento WordPress plugin.
+2. Install and activate the plugin in your WordPress admin panel.
+3. Add your Bento site key in the plugin settings.
+
+## Modules
 
 ### WooCommerce
 
-#### `$OrderPlaced`
+The SDK automatically tracks the following WooCommerce events:
 
-When an order is placed in WooCommerce. A persons lifetime value (LTV) will be increased in Bento for the order total.
+#### Order Placed
 
-#### `$OrderRefunded`
+```php
+// Event: $OrderPlaced
+// Triggered when an order is placed
+// Increases the customer's LTV
+```
 
-If an order is refunded, whether partial or full, it will deduct the LTV of a person in based the refunded amount.
+#### Order Refunded
 
-#### `$OrderCancelled`
+```php
+// Event: $OrderRefunded
+// Triggered when an order is refunded (partial or full)
+// Decreases the customer's LTV
+```
 
-When an order status is changed to `cancelled`.
+#### Order Cancelled
 
-#### `$OrderShipped`
+```php
+// Event: $OrderCancelled
+// Triggered when an order status is changed to 'cancelled'
+```
 
-When an order status has been changed to `completed`.
+#### Order Shipped
 
+```php
+// Event: $OrderShipped
+// Triggered when an order status is changed to 'completed'
+```
 
 ### WooCommerce Subscriptions
 
-#### `$SubscriptionCreated`
+The SDK tracks these subscription-related events:
 
-When a new subscription is created, regardless of its status.
+#### Subscription Created
 
-#### `$SubscriptionActive`
+```php
+// Event: $SubscriptionCreated
+// Triggered when a new subscription is created
+```
 
-When a new subscription becomes active, such as after a trial has ended.
+#### Subscription Activated
 
-#### `$SubscriptionCancelled`
+```php
+// Event: $SubscriptionActive
+// Triggered when a subscription becomes active
+```
 
-When a subscription is cancelled by an admin. Note this will not be triggered if a customer cancels their subscription, only when a subscription comes to the end of a prepaid term will it be cancelled.
+#### Subscription Cancelled
 
-#### `$SubscriptionExpired`
+```php
+// Event: $SubscriptionCancelled
+// Triggered when a subscription is cancelled by an admin
+```
 
-When a subscription reaches the end of it's term.
+#### Subscription Expired
 
-#### `$SubscriptionOnHold`
+```php
+// Event: $SubscriptionExpired
+// Triggered when a subscription reaches the end of its term
+```
 
-When the status of a subscription changes to `on-hold`
+#### Subscription On Hold
 
-#### `$SubscriptionTrialEnded`
+```php
+// Event: $SubscriptionOnHold
+// Triggered when a subscription status changes to 'on-hold'
+```
 
-When the trial period of a subscription has reached its end date.
+#### Subscription Trial Ended
 
-#### `$SubscriptionRenewed`
+```php
+// Event: $SubscriptionTrialEnded
+// Triggered when a subscription's trial period ends
+```
 
-When a subscription renewal payment is processed.
+#### Subscription Renewed
+
+```php
+// Event: $SubscriptionRenewed
+// Triggered when a subscription renewal payment is processed
+```
 
 ### Easy Digital Downloads
 
-#### `$DownloadPurchased`
+The SDK tracks these EDD events:
 
-When a payment is complete for a download.
+#### Download Purchased
 
-#### `$DownloadDownloaded`
+```php
+// Event: $DownloadPurchased
+// Triggered when a payment is completed for a download
+```
 
-When a download is downloaded by a user.
+#### Download Downloaded
 
-#### `$DownloadRefunded`
+```php
+// Event: $DownloadDownloaded
+// Triggered when a user downloads a purchased item
+```
 
-When a download is refunded, either partially or full.
+#### Download Refunded
 
-## Licence
+```php
+// Event: $DownloadRefunded
+// Triggered when a download is refunded (partial or full)
+```
 
-The Bento Helper is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 2 of the License, or
-any later version.
+## Things to Know
 
-The Bento Helper is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+1. The SDK automatically tracks key eCommerce events without additional configuration.
+2. Customer Lifetime Value (LTV) is automatically calculated based on orders and refunds.
+3. The Bento script is dynamic and personalized, so it should be excluded from caching plugins.
+4. Subscription events are only triggered for admin-initiated actions, not customer-initiated ones.
+5. The SDK supports both WooCommerce and Easy Digital Downloads for comprehensive eCommerce tracking.
+
+## Contributing
+
+We welcome contributions! Please see our [contributing guidelines](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and suggest improvements.
+
+## License
+
+The Bento SDK for WordPress & WooCommerce is available as open source under the terms of the [MIT License](LICENSE).
