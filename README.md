@@ -1,4 +1,6 @@
 
+<p align="center"><img src="/art/bento-wordpress-sdk.png" alt="Bento Wordpress Woocommerce SDK"></p>
+
 [![Build Status](https://travis-ci.org/bentonow/bento-wordpress-sdk.svg?branch=master)](https://travis-ci.org/bentonow/bento-wordpress-sdk)
 
 > [!TIP]
