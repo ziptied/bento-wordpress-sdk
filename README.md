@@ -181,8 +181,8 @@ The SDK tracks these EDD events:
 
 ## Contributing
 
-We welcome contributions! Please see our [contributing guidelines](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and suggest improvements.
+We welcome contributions! Please see our [contributing guidelines](CODE_OF_CONDUCT.md) for details on how to submit pull requests, report issues, and suggest improvements.
 
 ## License
 
-The Bento SDK for WordPress & WooCommerce is available as open source under the terms of the [MIT License](LICENSE).
+The Bento SDK for WordPress & WooCommerce is available as open source under the terms of the [MIT License](LICENSE.md).
