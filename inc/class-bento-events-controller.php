@@ -101,7 +101,10 @@ if ( ! class_exists( 'Bento_Events_Controller', false ) ) {
 			$response      = wp_remote_post(
 				self::BENTO_API_EVENT_ENDPOINT,
 				array(
-					'headers'     => array( 'Content-Type' => 'application/json; charset=utf-8' ),
+                    'headers'     => array(
+                        'Content-Type' => 'application/json; charset=utf-8',
+                        'User-Agent'   => 'bento-wordpress-' . $bento_site_key
+                    ),
 					'body'        => wp_json_encode( $data ),
 					'method'      => 'POST',
 					'data_format' => 'body',
