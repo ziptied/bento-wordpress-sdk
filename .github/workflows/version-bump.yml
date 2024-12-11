@@ -1,11 +1,15 @@
-name: Version Bump
+name: Version Bump and Release
 
 on:
-  release:
-    types: [created]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New version number (e.g., 2.0.3)'
+        required: true
+        type: string
 
 jobs:
-  bump-version:
+  bump-and-release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -14,11 +18,10 @@ jobs:
           ref: master
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get release version
-        id: get_version
+      - name: Set version
         run: |
-          RELEASE_VERSION=${GITHUB_REF#refs/tags/}
-          echo "VERSION=${RELEASE_VERSION#v}" >> $GITHUB_ENV
+          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
 
       - name: Update version in PHP files
         run: |
@@ -32,6 +35,14 @@ jobs:
         run: |
           jq ".version = \"$VERSION\"" package.json > temp.json && mv temp.json package.json
 
+      - name: Generate Release Notes
+        id: release_notes
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const script = require('./.github/scripts/generate-release-notes.js')
+            return await script({github, context})
+
       - name: Commit version bump
         run: |
           git config --local user.email "action@github.com"
@@ -39,3 +50,18 @@ jobs:
           git add bento-helper.php package.json
           git commit -m "chore: bump version to $VERSION [skip ci]"
           git push
+
+      - name: Create tag
+        run: |
+          git tag v$VERSION
+          git push origin v$VERSION
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: Release v${{ env.VERSION }}
+          body: ${{ steps.release_notes.outputs.result }}
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
