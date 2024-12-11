@@ -8,7 +8,15 @@ module.exports = async ({github, context}) => {
 
     const latestTag = tags[0]?.name || '';
 
-    // Get all PRs merged since the last tag
+    // Get commits since last tag
+    const { data: commits } = await github.rest.repos.compareCommits({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        base: latestTag || 'master~1',
+        head: 'master'
+    });
+
+    // Get PRs
     const { data: pulls } = await github.rest.pulls.list({
         owner: context.repo.owner,
         repo: context.repo.repo,
@@ -18,58 +26,97 @@ module.exports = async ({github, context}) => {
         per_page: 100
     });
 
-    // Filter PRs that were merged after the last release
+    // Filter merged PRs since last release
     const mergedPRs = pulls.filter(pr => {
-        return pr.merged_at && (!latestTag || new Date(pr.merged_at) > new Date(latestTag.created_at));
+        return pr.merged_at && (!latestTag || new Date(pr.merged_at) > new Date(tags[0]?.created_at));
     });
 
-    // Categories for changes
+    // Categorize changes
     const categories = {
-        'Features': mergedPRs.filter(pr => pr.labels.some(label => label.name.includes('feature'))),
-        'Bug Fixes': mergedPRs.filter(pr => pr.labels.some(label => label.name.includes('bug'))),
-        'Documentation': mergedPRs.filter(pr => pr.labels.some(label => label.name.includes('documentation'))),
-        'Other Changes': mergedPRs.filter(pr =>
-            !pr.labels.some(label =>
-                label.name.includes('feature') ||
-                label.name.includes('bug') ||
-                label.name.includes('documentation')
+        '🚀 New Features': {
+            commits: commits.commits.filter(commit => commit.commit.message.startsWith('feat')),
+            prs: mergedPRs.filter(pr =>
+                pr.labels.some(label => label.name.includes('feature') || label.name.includes('enhancement'))
             )
-        )
+        },
+        '🐛 Bug Fixes': {
+            commits: commits.commits.filter(commit => commit.commit.message.startsWith('fix')),
+            prs: mergedPRs.filter(pr => pr.labels.some(label => label.name.includes('bug')))
+        },
+        '📚 Documentation': {
+            commits: commits.commits.filter(commit => commit.commit.message.startsWith('docs')),
+            prs: mergedPRs.filter(pr => pr.labels.some(label => label.name.includes('documentation')))
+        },
+        '🔧 Maintenance': {
+            commits: commits.commits.filter(commit =>
+                commit.commit.message.startsWith('chore') ||
+                commit.commit.message.startsWith('refactor') ||
+                commit.commit.message.startsWith('style')
+            ),
+            prs: mergedPRs.filter(pr =>
+                pr.labels.some(label =>
+                    label.name.includes('maintenance') ||
+                    label.name.includes('chore') ||
+                    label.name.includes('refactor')
+                )
+            )
+        }
     };
-
-    // Get unique contributors
-    const contributors = [...new Set(mergedPRs.map(pr => pr.user.login))];
 
     // Generate markdown
     let markdown = '## What\'s Changed\n\n';
 
-    for (const [category, prs] of Object.entries(categories)) {
-        if (prs.length > 0) {
+    // Add breaking changes first if any
+    const breakingChanges = [
+        ...commits.commits.filter(commit => commit.commit.message.includes('BREAKING CHANGE')),
+        ...mergedPRs.filter(pr => pr.labels.some(label => label.name.includes('breaking')))
+    ];
+
+    if (breakingChanges.length > 0) {
+        markdown += '⚠️ **Breaking Changes**\n\n';
+        breakingChanges.forEach(change => {
+            if ('number' in change) { // It's a PR
+                markdown += `* ${change.title} (#${change.number})\n`;
+            } else { // It's a commit
+                const breakingChangeDesc = change.commit.message.split('BREAKING CHANGE:')[1]?.trim();
+                markdown += `* ${breakingChangeDesc || change.commit.message}\n`;
+            }
+        });
+        markdown += '\n';
+    }
+
+    // Add categorized changes
+    for (const [category, items] of Object.entries(categories)) {
+        if (items.commits.length > 0 || items.prs.length > 0) {
             markdown += `### ${category}\n\n`;
-            prs.forEach(pr => {
-                markdown += `* ${pr.title} (#${pr.number}) by @${pr.user.login}\n`;
+
+            // Add PRs first
+            items.prs.forEach(pr => {
+                markdown += `* ${pr.title} (#${pr.number}) @${pr.user.login}\n`;
             });
+
+            // Add commits that aren't associated with PRs
+            items.commits
+                .filter(commit => !items.prs.some(pr => pr.merge_commit_sha === commit.sha))
+                .forEach(commit => {
+                    const firstLine = commit.commit.message.split('\n')[0];
+                    markdown += `* ${firstLine} (${commit.sha.substring(0, 7)}) @${commit.author?.login || commit.commit.author.name}\n`;
+                });
+
             markdown += '\n';
         }
     }
 
-    if (contributors.length > 0) {
+    // Add contributors section
+    const contributors = new Set([
+        ...mergedPRs.map(pr => pr.user.login),
+        ...commits.commits.map(commit => commit.author?.login || commit.commit.author.name)
+    ]);
+
+    if (contributors.size > 0) {
         markdown += '## Contributors\n\n';
-        contributors.forEach(contributor => {
-            markdown += `* @${contributor}\n`;
-        });
-    }
-
-    // Add breaking changes section if any PR has breaking change label
-    const breakingChanges = mergedPRs.filter(pr =>
-        pr.labels.some(label => label.name.includes('breaking'))
-    );
-
-    if (breakingChanges.length > 0) {
-        markdown = '⚠️ This release contains breaking changes!\n\n' + markdown;
-        markdown += '\n## Breaking Changes\n\n';
-        breakingChanges.forEach(pr => {
-            markdown += `* ${pr.title} (#${pr.number})\n`;
+        [...contributors].forEach(contributor => {
+            markdown += `* ${contributor.includes('@') ? contributor : '@' + contributor}\n`;
         });
     }
 
