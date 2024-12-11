@@ -41,7 +41,8 @@ jobs:
         with:
           script: |
             const script = require('./.github/scripts/generate-release-notes.js')
-            return await script({github, context})
+            const notes = await script({github, context})
+            core.setOutput('notes', notes)
 
       - name: Commit version bump
         run: |
@@ -58,10 +59,11 @@ jobs:
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ env.VERSION }}
           name: Release v${{ env.VERSION }}
-          body: ${{ steps.release_notes.outputs.result }}
+          body: ${{ steps.release_notes.outputs.notes }}
           draft: false
           prerelease: false
-          token: ${{ secrets.GITHUB_TOKEN }}
