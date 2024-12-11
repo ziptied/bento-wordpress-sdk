@@ -13,7 +13,7 @@ class BentoSettingsPage {
 	/**
 	 * Holds the values to be used in the fields callbacks
 	 *
-	 * @var arrray
+	 * @var array
 	 */
 	private $options;
 
