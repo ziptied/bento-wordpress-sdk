@@ -31,34 +31,57 @@ module.exports = async ({github, context}) => {
         return pr.merged_at && (!latestTag || new Date(pr.merged_at) > new Date(tags[0]?.created_at));
     });
 
+    // Helper function to determine type from text
+    const getChangeType = (subject, body = '') => {
+        const text = `${subject}\n${body}`.toLowerCase();
+        if (text.includes('breaking change') || text.includes('breaking:')) return 'breaking';
+        if (text.includes('feat:') || text.includes('feature:') || text.includes('enhancement:')) return 'feature';
+        if (text.includes('fix:') || text.includes('bug:')) return 'bug';
+        if (text.includes('doc:') || text.includes('docs:')) return 'docs';
+        if (text.includes('chore:') || text.includes('refactor:') || text.includes('style:')) return 'maintenance';
+        return 'other';
+    };
+
     // Categorize changes
     const categories = {
         '🚀 New Features': {
-            commits: commits.commits.filter(commit => commit.commit.message.startsWith('feat')),
+            commits: commits.commits.filter(commit =>
+                getChangeType(commit.commit.message) === 'feature'
+            ),
             prs: mergedPRs.filter(pr =>
-                pr.labels.some(label => label.name.includes('feature') || label.name.includes('enhancement'))
+                getChangeType(pr.title, pr.body) === 'feature'
             )
         },
         '🐛 Bug Fixes': {
-            commits: commits.commits.filter(commit => commit.commit.message.startsWith('fix')),
-            prs: mergedPRs.filter(pr => pr.labels.some(label => label.name.includes('bug')))
+            commits: commits.commits.filter(commit =>
+                getChangeType(commit.commit.message) === 'bug'
+            ),
+            prs: mergedPRs.filter(pr =>
+                getChangeType(pr.title, pr.body) === 'bug'
+            )
         },
         '📚 Documentation': {
-            commits: commits.commits.filter(commit => commit.commit.message.startsWith('docs')),
-            prs: mergedPRs.filter(pr => pr.labels.some(label => label.name.includes('documentation')))
+            commits: commits.commits.filter(commit =>
+                getChangeType(commit.commit.message) === 'docs'
+            ),
+            prs: mergedPRs.filter(pr =>
+                getChangeType(pr.title, pr.body) === 'docs'
+            )
         },
         '🔧 Maintenance': {
             commits: commits.commits.filter(commit =>
-                commit.commit.message.startsWith('chore') ||
-                commit.commit.message.startsWith('refactor') ||
-                commit.commit.message.startsWith('style')
+                getChangeType(commit.commit.message) === 'maintenance'
             ),
             prs: mergedPRs.filter(pr =>
-                pr.labels.some(label =>
-                    label.name.includes('maintenance') ||
-                    label.name.includes('chore') ||
-                    label.name.includes('refactor')
-                )
+                getChangeType(pr.title, pr.body) === 'maintenance'
+            )
+        },
+        '🔄 Other Changes': {
+            commits: commits.commits.filter(commit =>
+                getChangeType(commit.commit.message) === 'other'
+            ),
+            prs: mergedPRs.filter(pr =>
+                getChangeType(pr.title, pr.body) === 'other'
             )
         }
     };
@@ -66,10 +89,10 @@ module.exports = async ({github, context}) => {
     // Generate markdown
     let markdown = '## What\'s Changed\n\n';
 
-    // Add breaking changes first if any
+    // Add breaking changes first
     const breakingChanges = [
-        ...commits.commits.filter(commit => commit.commit.message.includes('BREAKING CHANGE')),
-        ...mergedPRs.filter(pr => pr.labels.some(label => label.name.includes('breaking')))
+        ...commits.commits.filter(commit => getChangeType(commit.commit.message) === 'breaking'),
+        ...mergedPRs.filter(pr => getChangeType(pr.title, pr.body) === 'breaking')
     ];
 
     if (breakingChanges.length > 0) {
@@ -78,8 +101,8 @@ module.exports = async ({github, context}) => {
             if ('number' in change) { // It's a PR
                 markdown += `* ${change.title} (#${change.number})\n`;
             } else { // It's a commit
-                const breakingChangeDesc = change.commit.message.split('BREAKING CHANGE:')[1]?.trim();
-                markdown += `* ${breakingChangeDesc || change.commit.message}\n`;
+                const firstLine = change.commit.message.split('\n')[0];
+                markdown += `* ${firstLine} (${change.sha.substring(0, 7)})\n`;
             }
         });
         markdown += '\n';
