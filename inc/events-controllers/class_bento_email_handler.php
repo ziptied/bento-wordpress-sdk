@@ -158,7 +158,14 @@ class Bento_Email_Handler extends Bento_Events_Controller {
      */
     private function create_email_hash($email_data) {
         // Convert recipient(s) to a consistent format
-        $to = is_array($email_data['to']) ? implode(',', $email_data['to']) : $email_data['to'];
+        $normalized = $this->normalize_recipients($email_data['to'] ?? []);
+        if (!empty($normalized)) {
+            $to = implode(',', $normalized);
+        } else {
+            $to = is_array($email_data['to'] ?? null)
+                ? implode(',', $email_data['to'])
+                : ($email_data['to'] ?? '');
+        }
 
         // Combine key elements of the email
         $hash_input = $to . '|' .
@@ -181,8 +188,16 @@ class Bento_Email_Handler extends Bento_Events_Controller {
         $transactional_override = !empty($options['bento_transactional_override']) && $options['bento_transactional_override'] === '1';
         $reply_to_enabled = !isset($options['bento_enable_reply_to']) || $options['bento_enable_reply_to'] !== '0';
 
+        $recipients = $this->normalize_recipients($email_data['to'] ?? []);
+        if (empty($recipients)) {
+            Bento_Logger::log('Bento Email Handler: No valid recipients found');
+            return false;
+        }
+
+        $recipient_list = implode(', ', $recipients);
+
         $parsed_headers = $this->parse_headers($email_data['headers'] ?? []);
-        $reply_to = $parsed_headers['Reply-To'] ?? ($parsed_headers['reply-to'] ?? null);
+        $reply_to = $this->parse_reply_to($parsed_headers);
 
 
         Bento_Logger::log('Bento Email Handler: Sending via API');
@@ -203,7 +218,7 @@ class Bento_Email_Handler extends Bento_Events_Controller {
         $body = array(
             'emails' => array(
                 array(
-                    'to' => $email_data['to'],
+                    'to' => $recipient_list,
                     'from' => $from_email,
                     'subject' => $email_data['subject'],
                     'html_body' => $email_data['message'],
@@ -277,14 +292,105 @@ class Bento_Email_Handler extends Bento_Events_Controller {
         $parsed = [];
 
         foreach ($headers as $header) {
+            if (!is_string($header) || trim($header) === '') {
+                continue;
+            }
+
             if (strpos($header, ':') === false) {
                 continue;
             }
 
             [$name, $value] = explode(':', $header, 2);
-            $parsed[trim($name)] = trim($value);
+            $parsed[strtolower(trim($name))] = trim($value);
         }
 
         return $parsed;
+    }
+
+    /**
+     * Extract and validate reply-to address from parsed headers.
+     */
+    private function parse_reply_to($headers) {
+        $value = $headers['reply-to'] ?? null;
+        if (empty($value)) {
+            return null;
+        }
+
+        $candidates = preg_split('/[,;]/', $value);
+        if ($candidates === false) {
+            $candidates = [$value];
+        }
+
+        foreach ($candidates as $candidate) {
+            $candidate = trim($candidate);
+            if ($candidate === '') {
+                continue;
+            }
+
+            if (preg_match('/<([^>]+)>/', $candidate, $matches)) {
+                $email = trim($matches[1]);
+            } else {
+                $email = $candidate;
+            }
+
+            if ($this->is_valid_email($email)) {
+                return $email;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalize recipient list into valid email addresses.
+     */
+    private function normalize_recipients($recipients) {
+        if (empty($recipients)) {
+            return [];
+        }
+
+        if (is_string($recipients)) {
+            $recipients = preg_split('/[,;]/', $recipients);
+        }
+
+        if (!is_array($recipients)) {
+            $recipients = (array) $recipients;
+        }
+
+        $normalized = [];
+
+        foreach ($recipients as $recipient) {
+            if (!is_string($recipient)) {
+                continue;
+            }
+
+            $recipient = trim($recipient);
+            if ($recipient === '') {
+                continue;
+            }
+
+            if (preg_match('/<([^>]+)>/', $recipient, $matches)) {
+                $email = trim($matches[1]);
+            } else {
+                $email = $recipient;
+            }
+
+            if ($this->is_valid_email($email)) {
+                $normalized[] = $email;
+            }
+        }
+
+        return array_values(array_unique($normalized));
+    }
+
+    /**
+     * Validate email address using WordPress helpers when available.
+     */
+    private function is_valid_email($email) {
+        if (function_exists('is_email')) {
+            return is_email($email);
+        }
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
     }
 }
