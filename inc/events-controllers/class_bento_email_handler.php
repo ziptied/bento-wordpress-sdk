@@ -179,6 +179,10 @@ class Bento_Email_Handler extends Bento_Events_Controller {
         $bento_secret_key = $options['bento_secret_key'] ?? '';
         $from_email = $options['bento_from_email'] ?? get_option('admin_email');
         $transactional_override = !empty($options['bento_transactional_override']) && $options['bento_transactional_override'] === '1';
+        $reply_to_enabled = !isset($options['bento_enable_reply_to']) || $options['bento_enable_reply_to'] !== '0';
+
+        $parsed_headers = $this->parse_headers($email_data['headers'] ?? []);
+        $reply_to = $parsed_headers['Reply-To'] ?? ($parsed_headers['reply-to'] ?? null);
 
 
         Bento_Logger::log('Bento Email Handler: Sending via API');
@@ -207,6 +211,10 @@ class Bento_Email_Handler extends Bento_Events_Controller {
                 )
             )
         );
+
+        if ($reply_to_enabled && !empty($reply_to)) {
+            $body['emails'][0]['reply_to'] = $reply_to;
+        }
 
         Bento_Logger::log('Request body: ' . print_r($body, true));
 
@@ -248,5 +256,35 @@ class Bento_Email_Handler extends Bento_Events_Controller {
         }
 
         return true;
+    }
+
+    /**
+     * Parse email headers into a name/value array.
+     */
+    private function parse_headers($headers) {
+        if (empty($headers)) {
+            return [];
+        }
+
+        if (is_string($headers)) {
+            $headers = explode("\n", str_replace("\r\n", "\n", $headers));
+        }
+
+        if (!is_array($headers)) {
+            return [];
+        }
+
+        $parsed = [];
+
+        foreach ($headers as $header) {
+            if (strpos($header, ':') === false) {
+                continue;
+            }
+
+            [$name, $value] = explode(':', $header, 2);
+            $parsed[trim($name)] = trim($value);
+        }
+
+        return $parsed;
     }
 }
